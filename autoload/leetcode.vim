@@ -410,11 +410,15 @@ function! leetcode#ResetSolution(latest_submission)
     normal gg
     normal gqG
 
+    let after_comment = leetcode#AfterComment(filetype)
+    call append('$', after_comment)
+
     " append the submitted code or the code template
     if len(code) == 0
         let code = problem['templates'][filetype]
     endif
     call append('$', code)
+    call append('$', leetcode#AfterCode(filetype))
 
     " go to the first line and delete it (a blank line)
     normal gg
@@ -452,6 +456,19 @@ function! leetcode#CommentEnd(ft)
         return '// [End of Description]'
     else
         return ''
+    endif
+endfunction
+
+function! leetcode#AfterComment(ft)
+    if a:ft == 'cpp'
+        return ['', '#ifdef TEST', '#define CATCH_CONFIG_MAIN', '#include "catch.hpp"', '#endif', '']
+    endif
+    return []
+endfunction
+
+function! leetcode#AfterCode(ft)
+    if a:ft == 'cpp'
+      return ['', '#ifdef TEST', 'TEST_CASE("") {', '}', '#endif']
     endif
 endfunction
 
@@ -837,8 +854,10 @@ function! leetcode#ViewSubmission()
         call add(output, leetcode#CommentLine(filetype, line))
     endfor
     call add(output, leetcode#CommentEnd(filetype))
+    let output += leetcode#AfterComment(filetype)
     call append('$', output)
     call append('$', subm['code'])
+    call append('$', leetcode#AfterCode(filetype))
 
     " delete the first line (it is a blank line)
     normal gg
