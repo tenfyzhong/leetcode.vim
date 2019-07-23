@@ -50,7 +50,7 @@ function! leetcode#SetupProblemWindow()
     setlocal nonumber
     setlocal norelativenumber
     setlocal nobuflisted
-    setlocal filetype=markdown
+    setlocal filetype=leetcode
     nnoremap <silent> <buffer> <return> :call leetcode#GoToProblem()<cr>
     nnoremap <silent> <buffer> s :call leetcode#GoToSubmissions()<cr>
 
@@ -621,7 +621,7 @@ function! leetcode#ShowResult(result_)
     setlocal norelativenumber
     setlocal nocursorline
     setlocal nobuflisted
-    setlocal filetype=markdown
+    setlocal filetype=leetcode
     setlocal modifiable
 
     let result = a:result_
@@ -731,7 +731,7 @@ function! leetcode#ShowSubmissions(slug)
         setlocal nonumber
         setlocal norelativenumber
         setlocal nobuflisted
-        setlocal filetype=markdown
+        setlocal filetype=leetcode
         nnoremap <silent> <buffer> <return> :call leetcode#ViewSubmission()<cr>
 
         " add custom syntax rules
