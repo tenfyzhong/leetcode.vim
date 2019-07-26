@@ -320,8 +320,35 @@ function! leetcode#GoToProblem()
     endif
 
     " create the solution file from the template
+    " echom printf('id: %s, slug: %s, ft: %s', problem['id'], problem['slug'], leetcode#SolutionFileExt(g:leetcode_solution_filetype))
+    let root = trim(system('git rev-parse --show-toplevel 2>/dev/null'))
+    if root != ''
+        call <sid>try_cd(root, problem['id'], problem['slug'])
+        call <sid>create_readme(problem['slug'], problem['title'], problem['desc'])
+    endif
     execute 'rightbelow vnew '.problem['slug'].'.'.leetcode#SolutionFileExt(g:leetcode_solution_filetype)
     call leetcode#ResetSolution(1)
+endfunction
+
+function! s:try_cd(root, id, slug)
+    let dir = printf('%04s-%s', a:id, a:slug)
+    call chdir(a:root)
+    if !isdirectory(dir)
+        call mkdir(dir)
+    endif
+    call chdir(dir)
+endfunction
+
+function! s:create_readme(slug, title, desc)
+    if filereadable('README.md')
+        return
+    endif
+    let content = []
+    call add(content, printf('# [%s](https://leetcode.com/problems/%s/)', a:title, a:slug))
+    let content += a:desc
+    call add(content, '')
+    call add(content, '# 解题思路')
+    call writefile(content, 'README.md')
 endfunction
 
 function! leetcode#SolutionFileExt(ft_)
