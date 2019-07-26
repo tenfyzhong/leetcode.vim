@@ -903,3 +903,15 @@ function! leetcode#CloseAnyPreview()
         execute curwin.'wincmd w'
     endtry
 endfunction
+
+function! leetcode#Open()
+    let slug = expand('%:t:r')
+    let url = printf('https://leetcode.com/problems/%s/', slug)
+    if executable('xdg-open')
+        call system('xdg-open ' . url)
+    elseif executable('open')
+        call system('open ' . url)
+    else
+      echoerr 'leetcode: no `open` or equivalent command found.'
+    endif
+endfunction
