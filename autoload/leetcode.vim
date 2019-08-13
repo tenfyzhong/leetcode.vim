@@ -332,11 +332,11 @@ endfunction
 
 function! s:try_cd(root, id, slug)
     let dir = printf('%04s-%s', a:id, a:slug)
-    call chdir(a:root)
+    exec "cd " . a:root
     if !isdirectory(dir)
         call mkdir(dir)
     endif
-    call chdir(dir)
+    exec "cd " . dir
 endfunction
 
 function! s:create_readme(slug, title, desc)
@@ -488,14 +488,14 @@ endfunction
 
 function! leetcode#AfterComment(ft)
     if a:ft == 'cpp'
-        return ['', '#ifdef TEST', '#define CATCH_CONFIG_MAIN', '#include "catch.hpp"', '#endif', '']
+        return ['', '#ifdef TEST', '#define CATCH_CONFIG_MAIN', '#include "catch.hpp"', '#endif', '#include <iostream>', '']
     endif
     return []
 endfunction
 
 function! leetcode#AfterCode(ft)
     if a:ft == 'cpp'
-      return ['', '#ifdef TEST', 'TEST_CASE("") {', '}', '#endif']
+      return ['', 'static const int fastIO = []() {', '    std::ios::sync_with_stdio(false);', '    std::cin.tie(nullptr);', '    return 0;', '}();', '', '#ifdef TEST', 'TEST_CASE("") {', '}', '#endif']
     endif
 endfunction
 
