@@ -120,8 +120,7 @@ function! leetcode#ListProblemsOfTopic(topic)
         let s:leetcode_problem_slug_map[p['fid']] = p['slug']
     endfor
 
-    let s:leetcode_end_of_topics = 0
-    let s:leetcode_end_of_companies = 0
+    call <SID>reset_leetcode_end_of_line()
 
     " create a window to show the problem list or go to the existing one
     let winnr = bufwinnr('LeetCode/List')
@@ -165,8 +164,7 @@ function! leetcode#ListProblemsOfCompany(company)
         let s:leetcode_problem_slug_map[p['fid']] = p['slug']
     endfor
 
-    let s:leetcode_end_of_topics = 0
-    let s:leetcode_end_of_companies = 0
+    call <SID>reset_leetcode_end_of_line()
 
     " create a window to show the problem list or go to the existing one
     let winnr = bufwinnr('LeetCode/List')
@@ -198,12 +196,64 @@ function! leetcode#ListProblemsOfCompany(company)
     endtry
 endfunction
 
+function! leetcode#ListProblemsOfDifficulty(difficulty)
+    if leetcode#CheckSignIn() == v:false
+        return
+    endif
+
+    let problems = py3eval('leetcode.get_problems(' . string(g:leetcode_categories) . ')')
+    let s:leetcode_problem_slug_map = {}
+    let difficutly_problems = []
+    for p in problems
+        if p['level'] == a:difficulty
+            call add(difficutly_problems, p)
+            let s:leetcode_problem_slug_map[p['fid']] = p['slug']
+        endif
+    endfor
+
+    call <SID>reset_leetcode_end_of_line()
+
+    let winnr = bufwinnr('LeetCode/List')
+    if winnr == -1
+        rightbelow new LeetCode/List
+        call leetcode#SetupProblemWindow()
+    else
+        execute winnr.'wincmd w'
+    endif
+
+    set modifiable
+
+    " clear the buffer
+    normal gg
+    normal dG
+
+    call append('$', ['LeetCode [' . a:difficulty . ']', repeat('=', 80), '',])
+
+    call leetcode#PrintProblemList(difficutly_problems)
+
+    normal gg
+    normal dd
+
+    setlocal nomodifiable
+
+    " try maximizing the window
+    try
+        silent! only
+    endtry
+endfunction
+
 function! leetcode#ListProblems()
     if leetcode#CheckSignIn() == v:false
         return
     endif
 
     let problems = py3eval('leetcode.get_problems(' . string(g:leetcode_categories) . ')')
+
+    let levels = {'Easy': 0, 'Medium': 0, 'Hard': 0}
+    for p in problems
+        let levels[p['level']] += 1
+    endfor
+    let difficutly_list = printf('Easy (%d), Medium (%d), Hard (%d)', levels['Easy'], levels['Medium'], levels['Hard'])
 
     let s:leetcode_problem_slug_map = {}
     for p in problems
@@ -251,8 +301,14 @@ function! leetcode#ListProblems()
         let company_list = company_list . c['company_slug'] . ' (' . c['num_problems'] . '), '
     endfor
 
-    call append('$', ['LeetCode', repeat('=', 80), '',
-                \ '## Topics', ''])
+    call append('$', ['LeetCode', repeat('=', 80), ''])
+
+    call append('$', ['## Difficutly', '', difficutly_list, ''])
+    normal G
+    normal gqq
+    let s:leetcode_end_of_difficulty = getcurpos()[1]
+
+    call append('$', ['## Topics', ''])
 
     call append('$', topic_list)
     normal G
@@ -290,7 +346,12 @@ function! leetcode#GoToProblem()
     let line = getline('.')
     let linenum = getcurpos()[1]
 
-    if linenum <= s:leetcode_end_of_topics
+    if linenum <= s:leetcode_end_of_difficulty
+        " The user is choosing a difficulty
+        let difficulty = expand('<cWORD>')
+        call leetcode#ListProblemsOfDifficulty(difficulty)
+        return
+    elseif linenum <= s:leetcode_end_of_topics
         " The user is choosing a topic
         let topic = expand('<cWORD>')
         if has_key(s:leetcode_topic_slug_map, topic)
@@ -914,4 +975,10 @@ function! leetcode#Open()
     else
       echoerr 'leetcode: no `open` or equivalent command found.'
     endif
+endfunction
+
+function! s:reset_leetcode_end_of_line()
+    let s:leetcode_end_of_topics = 0
+    let s:leetcode_end_of_companies = 0
+    let s:leetcode_end_of_difficulty = 0
 endfunction
