@@ -5,6 +5,7 @@ python3 if not vim.eval('s:current_dir') in sys.path: sys.path.append(vim.eval('
 python3 import leetcode
 
 let s:inited = py3eval('leetcode.inited')
+let s:status_to_state = {'Todo': ' ', 'Solved': 'X', 'Attempted': '?'}
 
 if g:leetcode_debug
     python3 leetcode.enable_logging()
@@ -242,6 +243,53 @@ function! leetcode#ListProblemsOfDifficulty(difficulty)
     endtry
 endfunction
 
+function! leetcode#ListProblemsOfStatus(status)
+    if leetcode#CheckSignIn() == v:false
+        return
+    endif
+
+    let problems = py3eval('leetcode.get_problems(' . string(g:leetcode_categories) . ')')
+    let s:leetcode_problem_slug_map = {}
+    let status_problems = []
+    let state = s:status_to_state[a:status]
+    for p in problems
+        if p['state'] == state
+            call add(status_problems, p)
+            let s:leetcode_problem_slug_map[p['fid']] = p['slug']
+        endif
+    endfor
+
+    call <SID>reset_leetcode_end_of_line()
+
+    let winnr = bufwinnr('LeetCode/List')
+    if winnr == -1
+        rightbelow new LeetCode/List
+        call leetcode#SetupProblemWindow()
+    else
+        execute winnr.'wincmd w'
+    endif
+
+    set modifiable
+
+    " clear the buffer
+    normal gg
+    normal dG
+
+    call append('$', ['LeetCode [' . a:status . ']', repeat('=', 80), '',])
+
+    call leetcode#PrintProblemList(status_problems)
+
+    normal gg
+    normal dd
+
+    setlocal nomodifiable
+
+    " try maximizing the window
+    try
+        silent! only
+    endtry
+endfunction
+
 function! leetcode#ListProblems()
     if leetcode#CheckSignIn() == v:false
         return
@@ -254,6 +302,12 @@ function! leetcode#ListProblems()
         let levels[p['level']] += 1
     endfor
     let difficutly_list = printf('Easy (%d), Medium (%d), Hard (%d)', levels['Easy'], levels['Medium'], levels['Hard'])
+
+    let status = {' ': 0, 'X': 0, '?': 0}
+    for p in problems
+        let status[p['state']] += 1
+    endfor
+    let status_list = printf('Todo (%d), Solved (%d), Attempted (%d)', status[' '], status['X'], status['?'])
 
     let s:leetcode_problem_slug_map = {}
     for p in problems
@@ -308,6 +362,11 @@ function! leetcode#ListProblems()
     normal gqq
     let s:leetcode_end_of_difficulty = getcurpos()[1]
 
+    call append('$', ['## Status', '', status_list, ''])
+    normal G
+    normal gqq
+    let s:leetcode_end_of_status = getcurpos()[1]
+
     call append('$', ['## Topics', ''])
 
     call append('$', topic_list)
@@ -350,6 +409,11 @@ function! leetcode#GoToProblem()
         " The user is choosing a difficulty
         let difficulty = expand('<cWORD>')
         call leetcode#ListProblemsOfDifficulty(difficulty)
+        return
+    elseif linenum < s:leetcode_end_of_status
+        " The user is choosing a status
+        let status = expand('<cWORD>')
+        call leetcode#ListProblemsOfStatus(status)
         return
     elseif linenum <= s:leetcode_end_of_topics
         " The user is choosing a topic
@@ -981,4 +1045,5 @@ function! s:reset_leetcode_end_of_line()
     let s:leetcode_end_of_topics = 0
     let s:leetcode_end_of_companies = 0
     let s:leetcode_end_of_difficulty = 0
+    let s:leetcode_end_of_status = 0
 endfunction
