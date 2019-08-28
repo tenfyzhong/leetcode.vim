@@ -430,14 +430,6 @@ function! leetcode#ListProblems(refresh) abort
     endif
 endfunction
 
-function! s:FileNameToSlug(file_name) abort
-    return substitute(a:file_name, '_', '-', 'g')
-endfunction
-
-function! s:SlugToFileName(slug) abort
-    return substitute(a:slug, '-', '_', 'g')
-endfunction
-
 function! s:HandleProblemListCR() abort
     " Parse the problem number from the line
     let line_nr = line('.')
@@ -462,20 +454,48 @@ function! s:HandleProblemListCR() abort
 
     if line_nr >= b:leetcode_problem_start_line &&
                 \ line_nr < b:leetcode_problem_end_line
+        let problem_id = <sid>ProblemIdFromNr(line_nr)
         let problem_nr = line_nr - b:leetcode_problem_start_line
         let problem_slug = b:leetcode_problems[problem_nr]['slug']
         let problem_ext = s:SolutionFileExt(g:leetcode_solution_filetype)
-        let problem_file_name = printf('%s.%s', s:SlugToFileName(problem_slug),
-                    \ problem_ext)
+        let problem_file_name = printf('%s.%s', problem_slug, problem_ext)
 
         if buflisted(problem_file_name)
             execute bufnr(problem_file_name) . 'buffer'
             return
         endif
 
-        execute 'rightbelow vnew ' . problem_file_name
-        call leetcode#ResetSolution(1)
+        let problem = <sid>GetProblem(problem_id)
+        if exists('*LeetcodeCRPre') && problem != {}
+            call LeetcodeCRPre(problem)
+        endif
+
+        if filereadable(problem_file_name)
+            execute 'rightbelow vnew ' . problem_file_name
+        else
+            execute 'rightbelow vnew ' . problem_file_name
+            call leetcode#ResetSolution(1)
+        endif
     endif
+endfunction
+
+function! s:GetProblem(id)
+    for problem in b:leetcode_downloaded_problems
+        if problem['id'] == a:id
+            return problem
+        endif
+    endfor
+    return {}
+endfunction
+
+function! s:ProblemIdFromNr(nr)
+    let content = getline(a:nr)
+    let items = split(content, '|')
+    if len(items) < 2 
+        return -1
+    endif
+    let strid = trim(items[1], ' ')
+    return strid
 endfunction
 
 function! s:HandleProblemListR() abort
@@ -556,7 +576,7 @@ function! leetcode#ResetSolution(with_latest_submission) abort
         return
     endif
 
-    let problem_slug = s:FileNameToSlug(expand('%:t:r'))
+    let problem_slug = expand('%:t:r')
     let expr = printf('leetcode.get_problem("%s")', problem_slug)
     let problem = py3eval(expr)
     if type(problem) != v:t_dict
@@ -612,6 +632,10 @@ function! leetcode#ResetSolution(with_latest_submission) abort
     call append('$', code)
 
     silent! normal! ggdd
+
+    if exists('*LeetcodeResetSolutionAfter')
+        call LeetcodeResetSolutionAfter(problem)
+    endif
 endfunction
 
 function! s:CommentStart(filetype, title) abort
@@ -698,7 +722,7 @@ function! leetcode#TestSolution() abort
         return
     endif
 
-    let file_name = s:FileNameToSlug(expand('%:t:r'))
+    let file_name = expand('%:t:r')
     if file_name == ''
         echo 'no file name'
         return
@@ -803,7 +827,7 @@ function! leetcode#SubmitSolution() abort
         return
     endif
 
-    let file_name = s:FileNameToSlug(expand('%:t:r'))
+    let file_name = expand('%:t:r')
     if file_name == ''
         echo 'no file name'
         return
@@ -1086,7 +1110,7 @@ function! s:HandleSubmissionsCR() abort
         return
     endif
 
-    let file_name = printf('%s.%s.%s', s:SlugToFileName(submission['slug']),
+    let file_name = printf('%s.%s.%s', submission['slug'],
                 \ submission_id, s:SolutionFileExt(submission['filetype']))
 
     if bufexists(file_name)
