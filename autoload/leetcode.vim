@@ -446,27 +446,37 @@ function! leetcode#ListProblems(refresh) abort
     endif
 
     let topics_and_companies = py3eval('leetcode.get_topics_and_companies()')
-    let topics = topics_and_companies['topics']
-    let companies = topics_and_companies['companies']
 
-    " concatenate the topics into a string
-    let topic_slugs = map(copy(topics), 'v:val["topic_slug"] . ":" . v:val["num_problems"]')
-    let topic_lines = s:FormatIntoColumns(topic_slugs)
+    call append('$', ['# LeetCode'])
+    let b:leetcode_topic_start_line = 0
+    let b:leetcode_topic_end_line = 0
+    let b:leetcode_company_start_line = 0
+    let b:leetcode_company_end_line = 0
 
-    call append('$', ['# LeetCode', '', '## Topics', ''])
+    if get(g:, 'leetcode_topic_enable', 1)
+        let topics = topics_and_companies['topics']
 
-    let b:leetcode_topic_start_line = line('$')
-    call append('$', topic_lines)
-    let b:leetcode_topic_end_line = line('$')
+        " concatenate the topics into a string
+        let topic_slugs = map(copy(topics), 'v:val["topic_slug"] . ":" . v:val["num_problems"]')
+        let topic_lines = s:FormatIntoColumns(topic_slugs)
 
-    let company_slugs = map(copy(companies), 'v:val["company_slug"] . ":" . v:val["num_problems"]')
-    let company_lines = s:FormatIntoColumns(company_slugs)
+        call append('$', ['', '## Topics', ''])
 
-    call append('$', ['', '## Companies', ''])
+        let b:leetcode_topic_start_line = line('$')
+        call append('$', topic_lines)
+        let b:leetcode_topic_end_line = line('$')
+    endif
 
-    let b:leetcode_company_start_line = line('$')
-    call append('$', company_lines)
-    let b:leetcode_company_end_line = line('$')
+
+    if get(g:, 'leetcode_company_enable', 1)
+        call append('$', ['', '## Companies', ''])
+        let companies = topics_and_companies['companies']
+        let company_slugs = map(copy(companies), 'v:val["company_slug"] . ":" . v:val["num_problems"]')
+        let company_lines = s:FormatIntoColumns(company_slugs)
+        let b:leetcode_company_start_line = line('$')
+        call append('$', company_lines)
+        let b:leetcode_company_end_line = line('$')
+    endif
 
     call append('$', '')
     call s:PrintProblemList()
