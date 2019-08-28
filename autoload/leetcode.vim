@@ -443,9 +443,9 @@ function! leetcode#ListProblems(refresh) abort
         let b:leetcode_state = 'All'
         let b:leetcode_sort_column = 'id'
         let b:leetcode_sort_order = 'asc'
+        let s:topics_and_companies = py3eval('leetcode.get_topics_and_companies()')
     endif
 
-    let topics_and_companies = py3eval('leetcode.get_topics_and_companies()')
 
     call append('$', ['# LeetCode'])
     let b:leetcode_topic_start_line = 0
@@ -454,7 +454,7 @@ function! leetcode#ListProblems(refresh) abort
     let b:leetcode_company_end_line = 0
 
     if get(g:, 'leetcode_topic_enable', 1)
-        let topics = topics_and_companies['topics']
+        let topics = s:topics_and_companies['topics']
 
         " concatenate the topics into a string
         let topic_slugs = map(copy(topics), 'v:val["topic_slug"] . ":" . v:val["num_problems"]')
@@ -470,7 +470,7 @@ function! leetcode#ListProblems(refresh) abort
 
     if get(g:, 'leetcode_company_enable', 1)
         call append('$', ['', '## Companies', ''])
-        let companies = topics_and_companies['companies']
+        let companies = s:topics_and_companies['companies']
         let company_slugs = map(copy(companies), 'v:val["company_slug"] . ":" . v:val["num_problems"]')
         let company_lines = s:FormatIntoColumns(company_slugs)
         let b:leetcode_company_start_line = line('$')
