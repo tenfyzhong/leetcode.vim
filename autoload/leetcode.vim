@@ -400,7 +400,7 @@ function! leetcode#ListProblems(refresh) abort
     let companies = topics_and_companies['companies']
 
     " concatenate the topics into a string
-    let topic_slugs = map(copy(topics), 'v:val["topic_slug"]')
+    let topic_slugs = map(copy(topics), 'v:val["topic_slug"] . ":" . v:val["num_problems"]')
     let topic_lines = s:FormatIntoColumns(topic_slugs)
 
     call append('$', ['# LeetCode', '', '## Topics', ''])
@@ -409,7 +409,7 @@ function! leetcode#ListProblems(refresh) abort
     call append('$', topic_lines)
     let b:leetcode_topic_end_line = line('$')
 
-    let company_slugs = map(copy(companies), 'v:val["company_slug"]')
+    let company_slugs = map(copy(companies), 'v:val["company_slug"] . ":" . v:val["num_problems"]')
     let company_lines = s:FormatIntoColumns(company_slugs)
 
     call append('$', ['', '## Companies', ''])
@@ -437,6 +437,7 @@ function! s:HandleProblemListCR() abort
     if line_nr >= b:leetcode_topic_start_line &&
                 \ line_nr < b:leetcode_topic_end_line
         let topic_slug = expand('<cWORD>')
+        let topic_slug = <SID>TagName(topic_slug)
         if topic_slug != ''
             call s:ListProblemsOfTopic(topic_slug, 'norefresh')
         endif
@@ -446,6 +447,7 @@ function! s:HandleProblemListCR() abort
     if line_nr >= b:leetcode_company_start_line &&
                 \ line_nr < b:leetcode_company_end_line
         let company_slug = expand('<cWORD>')
+        let company_slug = <SID>TagName(company_slug)
         if company_slug != ''
             call s:ListProblemsOfCompany(company_slug, 'norefresh')
         endif
@@ -477,6 +479,10 @@ function! s:HandleProblemListCR() abort
             call leetcode#ResetSolution(1)
         endif
     endif
+endfunction
+
+function! s:TagName(tag)
+    return substitute(a:tag, ':\d*$', '', 'g')
 endfunction
 
 function! s:GetProblem(id)
