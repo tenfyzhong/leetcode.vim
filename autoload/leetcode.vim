@@ -255,6 +255,9 @@ function! s:PrintProblemList() abort
         endif
         let title = substitute(problem['title'], '`', "'", 'g')
         if problem['paid_only']
+            if get(g:, 'leetcode_paid_only_enable', 1) == 0
+                continue
+            endif
             let title .= ' [P]'
         endif
         call add(problem_lines, printf(format, problem['state'],
@@ -271,6 +274,9 @@ endfunction
 function! s:PrintDifficultyTags()
     let tags = {'All': 0,  'Easy': 0, 'Medium': 0, 'Hard': 0}
     for problem in b:leetcode_problems
+        if problem['paid_only'] && get(g:, 'leetcode_paid_only_enable', 1) == 0
+            continue
+        endif
         let tags['All'] += 1
         let tags[problem['level']] += 1
     endfor
@@ -284,6 +290,9 @@ endfunction
 function! s:PrintStatusTags()
     let tags = {'All': 0, 'Todo': 0, 'Solved': 0, 'Attempted': 0}
     for problem in b:leetcode_problems
+        if problem['paid_only'] && get(g:, 'leetcode_paid_only_enable', 1) == 0
+            continue
+        endif
         let tags['All'] += 1
         let tags[s:StateToName(problem['state'])] += 1
     endfor
