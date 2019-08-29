@@ -1082,6 +1082,7 @@ function! s:ShowRunResultInPreview(result) abort
     hi! link lcWarning lcFailure
 
     execute saved_winnr . 'wincmd w'
+    call <SID>UpdateSubmitState(a:result)
 endfunction
 
 function! s:CheckRunCodeTask(timer) abort
@@ -1307,4 +1308,30 @@ function! s:FormatIntoColumns(words) abort
     endfor
 
     return lines
+endfunction
+
+function! s:UpdateSubmitState(result)
+    let state = '?'
+    if a:result['state'] == 'Accepted'
+        let state = 'X'
+    endif
+    let buffers = filter(range(1, bufnr('$')), 'buflisted(v:val)')
+    for b in buffers
+        let name = bufname(b)
+        if name !~ 'leetcode:\/\/\/problems'
+            continue
+        endif
+
+        let problems = getbufvar(b, 'leetcode_downloaded_problems')
+        if type(problems) != 3
+            continue
+        endif
+
+        for problem in problems
+            if problem['title'] == a:result['title'] 
+                let problem['state'] = state
+                break
+            endif
+        endfor
+    endfor
 endfunction
