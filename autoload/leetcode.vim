@@ -246,8 +246,6 @@ function! s:PrintProblemList() abort
                 \ repeat('-', title_width), repeat('-', 8), repeat('-', 10),
                 \ repeat('-', 10))
 
-    call append('$', [header, separator])
-
     let problem_lines = []
     for problem in sorted_problems
         if b:leetcode_difficulty !=# 'All' && b:leetcode_difficulty !=# problem['level'] ||
@@ -267,6 +265,12 @@ function! s:PrintProblemList() abort
                     \ problem['level'],
                     \ s:ProgressBar(problem['frequency'] / max_frequency, 10)))
     endfor
+
+    call append('$', printf('total: %d', len(problem_lines)))
+
+    call append('$', [header, separator])
+
+
     let b:leetcode_problem_start_line = line('$')
     call append('$', problem_lines)
     let b:leetcode_problem_end_line = line('$')
