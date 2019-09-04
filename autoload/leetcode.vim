@@ -123,6 +123,7 @@ function! s:SetupProblemListBuffer() abort
     setlocal norelativenumber
     setlocal nospell
     setlocal bufhidden=hide
+    setlocal filetype=leetcode
     setlocal nowrap
     nnoremap <silent> <buffer> <return> :call <SID>HandleProblemListCR()<cr>
     nnoremap <silent> <buffer> s :call <SID>HandleProblemListS()<cr>
@@ -528,10 +529,7 @@ function! s:HandleProblemListCR() abort
         let difficulty_slug = expand('<cWORD>')
         let difficulty_slug = s:TagName(difficulty_slug)
         if difficulty_slug != ''
-            if b:leetcode_difficulty != difficulty_slug
-                let b:leetcode_difficulty = difficulty_slug
-                call s:RedrawProblemList()
-            endif
+            call leetcode#ListProblemsDifficulty(difficulty_slug)
         endif
     endif
 
@@ -540,11 +538,7 @@ function! s:HandleProblemListCR() abort
         let status_slug = expand('<cWORD>')
         let status_slug = s:TagName(status_slug)
         if status_slug != ''
-            let new_state = s:ParseState(status_slug)
-            if b:leetcode_state != new_state
-                let b:leetcode_state = new_state
-                call s:RedrawProblemList()
-            endif
+            call leetcode#ListProblemsStatus(status_slug)
         endif
     endif
 
@@ -571,6 +565,27 @@ function! s:HandleProblemListCR() abort
             execute 'rightbelow vnew ' . problem_file_name
             call leetcode#ResetSolution(1)
         endif
+    endif
+endfunction
+
+function! leetcode#ListProblemsDifficulty(difficulty)
+    if a:difficulty !~# '\<All\>\|\<Easy\>\|\<Medium\>\|\<Hard\>'
+        return
+    endif
+    if b:leetcode_difficulty != a:difficulty
+        let b:leetcode_difficulty = a:difficulty
+        call s:RedrawProblemList()
+    endif
+endfunction
+
+function! leetcode#ListProblemsStatus(status)
+    if a:status !~# '\<All\>\|\<Todo\>\|\<Solved\>\|\<Attempted\>' 
+        return
+    endif
+    let new_state = s:ParseState(a:status)
+    if b:leetcode_state != new_state
+        let b:leetcode_state = new_state
+        call s:RedrawProblemList()
     endif
 endfunction
 
