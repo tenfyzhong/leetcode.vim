@@ -129,6 +129,7 @@ function! s:SetupProblemListBuffer() abort
     nnoremap <silent> <buffer> s :call <SID>HandleProblemListS()<cr>
     nnoremap <silent> <buffer> r :call <SID>HandleProblemListR()<cr>
     nnoremap <silent> <buffer> S :call <SID>HandleProblemListSort()<cr>
+    nnoremap <silent> <buffer> D :call <SID>RedrawProblemList()<cr>
 
     call s:SetupBasicSyntax()
 
@@ -232,6 +233,7 @@ function! s:PrintProblemList() abort
                 \ '  <cr>  open the problem/go to the topic or company',
                 \ '  s     view the submissions',
                 \ '  r     refresh',
+                \ '  D     redraw',
                 \ '  S     sort by column',
                 \ '',
                 \ '### Indicators',
