@@ -3,6 +3,7 @@ import logging
 import re
 import time
 import os
+import pickle
 from threading import Semaphore, Thread, current_thread
 
 try:
@@ -17,6 +18,16 @@ try:
 except ImportError:
     vim = None
 
+try:
+    import browser_cookie3
+except ImportError:
+    browser_cookie3 = None
+
+try:
+    import keyring
+except ImportError:
+    keyring = None
+
 
 LC_BASE = os.environ['LEETCODE_BASE_URL']
 LC_CSRF = LC_BASE + '/ensure_csrf/'
@@ -30,6 +41,7 @@ LC_SUBMISSIONS = LC_BASE + '/api/submissions/{slug}'
 LC_SUBMISSION = LC_BASE + '/submissions/detail/{submission}/'
 LC_CHECK = LC_BASE + '/submissions/detail/{submission}/check/'
 LC_PROBLEM_SET_ALL = LC_BASE + '/problemset/all/'
+LC_PROGRESS_ALL = LC_BASE + '/api/progress/all/'
 
 EMPTY_FREQUENCIES = [0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -58,8 +70,8 @@ def _make_headers():
     assert is_login()
     headers = {'Origin': LC_BASE,
                'Referer': LC_BASE,
-               'X-CSRFToken': session.cookies['csrftoken'],
-               'X-Requested-With': 'XMLHttpRequest'}
+               'X-Requested-With': 'XMLHttpRequest',
+               'X-CSRFToken': session.cookies.get('csrftoken', '')}
     return headers
 
 
@@ -132,37 +144,63 @@ def is_login():
     return session and 'LEETCODE_SESSION' in session.cookies
 
 
-def signin(username, password):
-    global session
-    session = requests.Session()
-    if 'cn' in LC_BASE:
-        res = session.get(LC_CSRF)
-    else:
-        res = session.get(LC_LOGIN)
+def get_progress():
+    headers = _make_headers()
+    res = session.get(LC_PROGRESS_ALL, headers=headers)
     if res.status_code != 200:
-        _echoerr('cannot open ' + LC_BASE)
+        _echoerr('cannot get the progress')
+        return None
+
+    data = res.json()
+    if 'solvedTotal' not in data:
+        return None
+    return data
+
+
+def load_session_cookie(browser):
+    if browser_cookie3 is None:
+        _echoerr('browser_cookie3 not installed: pip3 install browser_cookie3 --user')
+        return False
+    if keyring is None:
+        _echoerr('keyring not installed: pip3 install keyring --user')
         return False
 
-    headers = {'Origin': LC_BASE,
-               'Referer': LC_LOGIN}
-    form = {'csrfmiddlewaretoken': session.cookies['csrftoken'],
-            'login': username,
-            'password': password}
-    log.info('signin request: headers="%s" login="%s"', headers, username)
-    # requests follows the redirect url by default
-    # disable redirection explicitly
-    res = session.post(LC_LOGIN, data=form, headers=headers, allow_redirects=False)
-    log.info('signin response: status="%s" body="%s"', res.status_code, res.text)
-    if res.status_code != 302:
-        _echoerr('password incorrect')
+    session_cookie_raw = keyring.get_password('leetcode.vim', 'SESSION_COOKIE')
+    if session_cookie_raw is None:
+        cookies = getattr(browser_cookie3, browser)(domain_name=LC_BASE.split('/')[-1])
+        for cookie in cookies:
+            if cookie.name == 'LEETCODE_SESSION':
+                session_cookie = cookie
+                session_cookie_raw = pickle.dumps(cookie, protocol=0).decode('utf-8')
+                break
+        else:
+            _echoerr('Leetcode session cookie not found. Please login in browser.')
+            return False
+        keyring.set_password('leetcode.vim', 'SESSION_COOKIE', session_cookie_raw)
+    else:
+        session_cookie = pickle.loads(session_cookie_raw.encode('utf-8'))
+
+    global session
+    session = requests.Session()
+    session.cookies.set_cookie(session_cookie)
+
+    progress = get_progress()
+    if progress is None:
+        _echoerr('cannot get progress. Please relogin in your browser.')
+        keyring.delete_password('leetcode.vim', 'SESSION_COOKIE')
         return False
+
     return True
 
 
 def _get_category_problems(category):
     headers = _make_headers()
     url = LC_CATEGORY_PROBLEMS.format(category=category)
+    log.info('_get_category_problems request: url="%s" headers="%s"',
+             url, headers)
     res = session.get(url, headers=headers)
+    log.info('_get_category_problems response: status="%s" body="%s"',
+             res.status_code, res.text)
     if res.status_code != 200:
         _echoerr('cannot get the category: {}'.format(category))
         return []
@@ -194,6 +232,23 @@ def get_problems(categories):
     for c in categories:
         problems.extend(_get_category_problems(c))
     return sorted(problems, key=lambda p: p['id'])
+
+
+def _split(s):
+    if isinstance(s, list):
+        lines = []
+        for element in s:
+            lines.extend(_split(element))
+        return lines
+
+    # Replace all \r\n to \n and all \r (alone) to \n
+    s = s.replace('\r\n', '\n').replace('\r', '\n').replace('\0', '\n')
+    # str.split has an disadvantage that ''.split('\n') results in [''], but what we want
+    # is []. This small function returns [] if `s` is a blank string, that is, containing no
+    # characters other than whitespaces.
+    if s.strip() == '':
+        return []
+    return s.split('\n')
 
 
 def get_problem(slug):
@@ -239,21 +294,12 @@ def get_problem(slug):
     for t in json.loads(q['codeDefinition']):
         problem['templates'][t['value']] = _break_code_lines(t['defaultCode'])
     problem['testable'] = q['enableRunCode']
-    problem['testcase'] = q['sampleTestCase']
+    problem['testcase'] = _split(q['sampleTestCase'])
     stats = json.loads(q['stats'])
     problem['total_accepted'] = stats['totalAccepted']
     problem['total_submission'] = stats['totalSubmission']
     problem['ac_rate'] = stats['acRate']
     return problem
-
-
-def _split(s):
-    # str.split has an disadvantage that ''.split('\n') results in [''], but what we want
-    # is []. This small function returns [] if `s` is a blank string, that is, containing no
-    # characters other than whitespaces.
-    if s.strip() == '':
-        return []
-    return s.split('\n')
 
 
 def _check_result(submission_id):
@@ -295,7 +341,7 @@ def _check_result(submission_id):
         'testcase': _split(r.get('input', r.get('last_testcase', ''))),
         'passed': r.get('total_correct') or 0,
         'total': r.get('total_testcases') or 0,
-        'error': [v for k, v in r.items() if 'error' in k and v]
+        'error': _split([v for k, v in r.items() if 'error' in k and v])
     }
 
     # the keys differs between the result of testing the code and submitting it
@@ -309,9 +355,10 @@ def _check_result(submission_id):
         # Test states cannot distinguish accepted answers from wrong answers.
         if result['state'] == 'Accepted':
             result['state'] = 'Finished'
-        result['stdout'] = r.get('code_output', [])
+        result['stdout'] = _split(r.get('code_output', []))
         result['expected_answer'] = []
         result['runtime_percentile'] = r.get('runtime_percentile', '')
+        result['expected_answer'] = r.get('expected_code_answer', [])
     return result
 
 
@@ -338,12 +385,10 @@ def test_solution(problem_id, title, slug, filetype, code, test_input):
             _echoerr('cannot test the solution for ' + slug)
         return None
 
-    actual = _check_result(res.json()['interpret_id'])
-    expected = _check_result(res.json()['interpret_expected_id'])
-    actual['testcase'] = test_input.split('\n')
-    actual['expected_answer'] = expected['answer']
-    actual['title'] = title
-    return actual
+    result = _check_result(res.json()['interpret_id'])
+    result['testcase'] = test_input.split('\n')
+    result['title'] = title
+    return result
 
 
 def test_solution_async(problem_id, title, slug, filetype, code, test_input):
