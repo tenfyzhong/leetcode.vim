@@ -79,4 +79,28 @@ g:leetcode_solution_filetype
                             "javascript", "ruby", "swift", "golang", "scala",
                             "kotlin", "rust"
 
+                                                  *g:leetcode_hide_paid_only*
+g:leetcode_hide_paid_only
+                    Hide the paid only problems on the list.
+
+                    Default: 0
+
+                                                     *g:leetcode_hide_topics*
+g:leetcode_hide_topics
+                    Hide the topics section.
+
+                    Default: 0
+
+                                                  *g:leetcode_hide_companies*
+g:leetcode_hide_companies
+                    Hide the companies section.
+
+                    Default: 0
+
+                                                      *g:leetcode_problemset*
+g:leetcode_problemset
+                    Set the problemset to get from leetcode.
+
+                    Default: 'all'
+
  vim:tw=78:ts=8:et:ft=help:norl:

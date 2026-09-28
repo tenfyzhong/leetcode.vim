@@ -88,6 +88,30 @@ Values: `'disabled'`, `'chrome'`, `'firefox'`
 
 Default value is `'disabled'`.
 
+### `g:leetcode_hide_paid_only`
+
+Hide the paid only problems on the list.
+
+Default value is `0`.
+
+### `g:leetcode_hide_topics`
+
+Hide the topics section.
+
+Default value is `0`
+
+### `g:leetcode_hide_companies`
+
+Hide the companies section.
+
+Default value is `0`
+
+### `g:leetcode_problemset`
+
+Set the problemset to get from leetcode. 
+
+Default value is `all`
+
 ## Updates
 
 - 2019/12/20: Fix the login issue caused by reCAPTCHA.

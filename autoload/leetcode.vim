@@ -147,6 +147,9 @@ function! s:PrintProblemList() abort
     endif
 
     let b:leetcode_problems = sorted_problems
+    if g:leetcode_hide_paid_only
+        call filter(b:leetcode_problems, 'v:val["paid_only"] == 0')
+    endif
 
     let id_width = s:MaxWidthOfKey(sorted_problems, 'fid', 1)
     let title_width = s:MaxWidthOfKey(sorted_problems, 'title', 1) + 4
@@ -364,15 +367,16 @@ function! s:ListProblemsOfCompany(company_slug, refresh) abort
 endfunction
 
 function! leetcode#ListProblems(refresh) abort
-    let buf_name = 'leetcode:///problems/all'
+    let buf_name = 'leetcode:///problems/' . g:leetcode_problemset
     if s:CheckSignIn() == v:false
         return
     endif
+    let problemset = printf('leetcode.get_problems(["%s"])', g:leetcode_problemset)
     if buflisted(buf_name)
         execute bufnr(buf_name) . 'buffer'
         let saved_view = winsaveview()
         if a:refresh ==# 'redownload'
-            let expr = 'leetcode.get_problems(["all"])'
+            let expr = problemset
             let b:leetcode_downloaded_problems = py3eval(expr)
         elseif a:refresh ==# 'norefresh'
             return
@@ -384,7 +388,7 @@ function! leetcode#ListProblems(refresh) abort
         execute 'rightbelow new ' . buf_name
         call s:SetupProblemListBuffer()
         let b:leetcode_buffer_type = 'all'
-        let expr = 'leetcode.get_problems(["all"])'
+        let expr = problemset
         let b:leetcode_downloaded_problems = py3eval(expr)
         let b:leetcode_difficulty = 'All'
         let b:leetcode_state = 'All'
@@ -396,24 +400,28 @@ function! leetcode#ListProblems(refresh) abort
     let topics = s:topics_and_companies['topics']
     let companies = s:topics_and_companies['companies']
 
-    " concatenate the topics into a string
-    let topic_slugs = map(copy(topics), 'v:val["topic_slug"] . ":" . v:val["num_problems"]')
-    let topic_lines = s:FormatIntoColumns(topic_slugs)
+    if g:leetcode_hide_topics == 0
+        " concatenate the topics into a string
+        let topic_slugs = map(copy(topics), 'v:val["topic_slug"] . ":" . v:val["num_problems"]')
+        let topic_lines = s:FormatIntoColumns(topic_slugs)
 
-    call append('$', ['# LeetCode', '', '## Topics', ''])
+        call append('$', ['# LeetCode', '', '## Topics', ''])
 
-    let b:leetcode_topic_start_line = line('$')
-    call append('$', topic_lines)
-    let b:leetcode_topic_end_line = line('$')
+        let b:leetcode_topic_start_line = line('$')
+        call append('$', topic_lines)
+        let b:leetcode_topic_end_line = line('$')
+    endif
 
-    let company_slugs = map(copy(companies), 'v:val["company_slug"] . ":" . v:val["num_problems"]')
-    let company_lines = s:FormatIntoColumns(company_slugs)
+    if g:leetcode_hide_companies == 0
+        let company_slugs = map(copy(companies), 'v:val["company_slug"] . ":" . v:val["num_problems"]')
+        let company_lines = s:FormatIntoColumns(company_slugs)
 
-    call append('$', ['', '## Companies', ''])
+        call append('$', ['', '## Companies', ''])
 
-    let b:leetcode_company_start_line = line('$')
-    call append('$', company_lines)
-    let b:leetcode_company_end_line = line('$')
+        let b:leetcode_company_start_line = line('$')
+        call append('$', company_lines)
+        let b:leetcode_company_end_line = line('$')
+    endif
 
     call append('$', '')
     call s:PrintProblemList()
@@ -444,11 +452,21 @@ function! s:ProblemSlugFromFileName() abort
         " New style, e.g. 1.two-sum
         return s:FileNameToSlug(parts[1])
     elseif len(parts) == 2
-        " Old style with submission id, e.g. two-sum.1234 
-        return s:FileNameToSlug(parts[0])
+        if parts[-1] =~# '^\d\+$'
+            " Old style with submission id, e.g. two-sum.1234 
+            return s:FileNameToSlug(parts[0])
+        else
+            " There some problems like `面试题59 - II.dui_lie_de_zui_da_zhi_lcof.cpp` in leetcode-cn
+            return s:FileNameToSlug(parts[-1])
+        endif
     elseif len(parts) == 3
-        " New style with submission id, e.g. 1.two-sum.1234
-        return s:FileNameToSlug(parts[1])
+        if parts[-1] =~# '^\d\+$'
+            " New style with submission id, e.g. 1.two-sum.1234
+            return s:FileNameToSlug(parts[1])
+        else
+            " There some problems like `面试题 02.06.palindrome_linked_list_lcci.cpp` in leetcode-cn
+            return s:FileNameToSlug(parts[-1])
+        endif
     else
         throw 'leetcode: invalid file name: ' . expand('%:t:r')
     endif
@@ -458,22 +476,22 @@ function! s:HandleProblemListCR() abort
     " Parse the problem number from the line
     let line_nr = line('.')
 
-    if line_nr >= b:leetcode_topic_start_line &&
-                \ line_nr < b:leetcode_topic_end_line
+    if line_nr >= get(b:, 'leetcode_topic_start_line', 0) &&
+                \ line_nr < get(b:, 'leetcode_topic_end_line', 0)
         let topic_slug = expand('<cWORD>')
         let topic_slug = s:TagName(topic_slug)
         if topic_slug != ''
-            call s:ListProblemsOfTopic(topic_slug, 'norefresh')
+            call s:ListProblemsOfTopic(topic_slug, 'redraw')
         endif
         return
     endif
 
-    if line_nr >= b:leetcode_company_start_line &&
-                \ line_nr < b:leetcode_company_end_line
+    if line_nr >= get(b:, 'leetcode_company_start_line', 0) &&
+                \ line_nr < get(b:, 'leetcode_company_end_line', 0)
         let company_slug = expand('<cWORD>')
         let company_slug = s:TagName(company_slug)
         if company_slug != ''
-            call s:ListProblemsOfCompany(company_slug, 'norefresh')
+            call s:ListProblemsOfCompany(company_slug, 'redraw')
         endif
         return
     endif
@@ -687,6 +705,14 @@ function! leetcode#ResetSolution(with_latest_submission) abort
     endif
 
     silent! normal! ggdG
+    call append('$', code)
+    silent! normal! ggdd
+
+    let problem_desc_file_name = printf('[DESCRIPTION] %s.%s', problem['fid'], problem_slug)
+    if buflisted(problem_desc_file_name)
+        execute bufnr(problem_desc_file_name) . 'buffer'
+        return
+    endif
 
     let output = []
     call add(output, s:CommentStart(filetype, problem['title']))
@@ -701,13 +727,17 @@ function! leetcode#ResetSolution(with_latest_submission) abort
         call add(output, s:CommentLine(filetype, line))
     endfor
     call add(output, s:CommentEnd(filetype))
-    call append('$', output)
 
+    execute 'leftabove '. len(output). 'new ' . problem_desc_file_name
+    call append('$', output)
+    silent! normal! ggdd
     silent! normal! gggqG
 
-    call append('$', code)
+    setlocal nomodifiable
+    setlocal buftype=nofile
+    setlocal nospell
 
-    silent! normal! ggdd
+    execute 'wincmd j'
 endfunction
 
 function! s:CommentStart(filetype, title) abort
@@ -1049,6 +1079,16 @@ function! s:CheckRunCodeTask(timer) abort
 
     if task_name == 'test_solution' || task_name == 'submit_solution'
         if type(task_output) == v:t_dict
+            if task_name == 'test_solution'
+                if task_output['state'] == 'Finished' && 
+                            \task_output['answer'] != task_output['expected_answer']
+                    let task_output['state'] = 'Wrong Answer'
+                endif
+            elseif task_name == 'submit_solution'
+                if task_output['state'] == 'Finished'
+                    let task_output['state'] = 'Accepted'
+                endif
+            endif
             call s:ShowRunResultInPreview(task_output)
         endif
     else
